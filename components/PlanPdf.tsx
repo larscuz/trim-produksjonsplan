@@ -1,240 +1,570 @@
+// components/PlanPdf.tsx
 "use client";
 
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { PlanDoc } from "@/lib/types";
+import React, { useMemo, useRef } from "react";
+import type { PlanDoc, VideoPlan, GraphicPlan, PublishingPlan } from "@/lib/types";
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 28,
-    fontSize: 10,
-    fontFamily: "Helvetica",
-    color: "#111827",
-  },
-  h1: { fontSize: 18, marginBottom: 6, fontWeight: 700 },
-  h2: { fontSize: 12, marginTop: 14, marginBottom: 6, fontWeight: 700 },
-  small: { fontSize: 9, color: "#374151" },
-  box: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 6,
-  },
-  row: { display: "flex", flexDirection: "row", gap: 10 },
-  col: { flexGrow: 1, flexBasis: 0 },
-  label: { fontSize: 9, color: "#6B7280", marginBottom: 2 },
-  value: { fontSize: 10 },
-  bullet: { marginLeft: 10 },
-  weekCard: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 8,
-  },
-  divider: { height: 1, backgroundColor: "#E5E7EB", marginTop: 10, marginBottom: 10 },
-});
+function safeStr(v: any) {
+  return typeof v === "string" ? v : "";
+}
 
-function v(x?: string | null) {
-  const s = (x ?? "").trim();
-  return s.length ? s : "Ikke oppgitt";
+function linesToBullets(text: string): string[] {
+  const t = safeStr(text).trim();
+  if (!t) return [];
+  return t
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => s.replace(/^[-•]\s*/, ""));
 }
 
 function bullets(text: string) {
-  const lines = (text || "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (!lines.length) return <Text style={styles.value}>Ikke oppgitt</Text>;
+  const items = linesToBullets(text);
+  if (!items.length) return <div className="muted">—</div>;
   return (
-    <View>
-      {lines.map((l, i) => (
-        <Text key={i} style={[styles.value, styles.bullet]}>
-          • {l.replace(/^•\s?/, "")}
-        </Text>
+    <ul className="list">
+      {items.map((it, i) => (
+        <li key={i}>{it}</li>
       ))}
-    </View>
+    </ul>
+  );
+}
+
+function field(label: string, value: string) {
+  const v = safeStr(value).trim();
+  return (
+    <div className="row">
+      <div className="label">{label}</div>
+      <div className="value">
+        {v ? <div className="pre">{v}</div> : <div className="muted">—</div>}
+      </div>
+    </div>
+  );
+}
+
+function smallField(label: string, value: string) {
+  const v = safeStr(value).trim();
+  return (
+    <div className="pill">
+      <strong>{label}:</strong> {v || "—"}
+    </div>
+  );
+}
+
+function sectionTitle(t: string) {
+  return <div className="section-title">{t}</div>;
+}
+
+function safePublishing(p: any): PublishingPlan {
+  // Defensive for gammel JSON / manglende felt
+  return {
+    overallPlan: safeStr(p?.overallPlan),
+    platforms: safeStr(p?.platforms),
+    cadence: safeStr(p?.cadence),
+    approvals: safeStr(p?.approvals),
+    roles: safeStr(p?.roles),
+    metrics: safeStr(p?.metrics),
+    notes: safeStr(p?.notes),
+  };
+}
+
+function publishingBlock(publishing: PublishingPlan, title: string) {
+  const pub = safePublishing(publishing);
+
+  return (
+    <>
+      <div className="divider" />
+      <div className="card-subtitle">{title}</div>
+
+      <div className="grid-2">
+        {field("Plattformer", pub.platforms)}
+        {field("Frekvens (cadence)", pub.cadence)}
+      </div>
+
+      <div className="grid-2">
+        {field("Godkjenning", pub.approvals)}
+        {field("Roller", pub.roles)}
+      </div>
+
+      <div className="grid-2">
+        {field("Måling / metrics", pub.metrics)}
+        {field("Notater", pub.notes)}
+      </div>
+
+      {field("Overordnet plan", pub.overallPlan)}
+    </>
   );
 }
 
 export function PlanPdf({ plan }: { plan: PlanDoc }) {
+  // Defensive: aldri anta at productions finnes (ved import/gammel JSON)
+  const videos: VideoPlan[] = (plan as any)?.productions?.videos ?? [];
+  const graphics: GraphicPlan[] = (plan as any)?.productions?.graphics ?? [];
+
+  // Print/PDF
+  const printRef = useRef<HTMLDivElement | null>(null);
+
+  const created = useMemo(() => {
+    const v = safeStr(plan?.meta?.createdAt);
+    return v ? v.slice(0, 16).replace("T", " ") : "—";
+  }, [plan?.meta?.createdAt]);
+
+  const updated = useMemo(() => {
+    const v = safeStr(plan?.meta?.updatedAt);
+    return v ? v.slice(0, 16).replace("T", " ") : "—";
+  }, [plan?.meta?.updatedAt]);
+
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.h1}>{v(plan.meta.title)}</Text>
-        <Text style={styles.small}>
-          Kandidat/gruppe: {v(plan.meta.ownerName)} • Oppdatert: {new Date(plan.meta.updatedAt).toLocaleString("nb-NO")}
-        </Text>
+    <div className="pdf-root">
+      <div className="pdf-actions no-print">
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={() => {
+            window.print();
+          }}
+        >
+          Last ned PDF (Print)
+        </button>
+      </div>
 
-        <Text style={styles.h2}>Kunde og prosjekt</Text>
-        <View style={styles.box}>
-          <View style={styles.row}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Kunde</Text>
-              <Text style={styles.value}>{v(plan.customer.name)}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Kontakt</Text>
-              <Text style={styles.value}>{v(plan.customer.contact)}</Text>
-            </View>
-          </View>
-          <View style={styles.row}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Prosjektnavn</Text>
-              <Text style={styles.value}>{v(plan.customer.projectName)}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Deadline</Text>
-              <Text style={styles.value}>{v(plan.customer.deadline)}</Text>
-            </View>
-          </View>
+      <div ref={printRef} className="pdf">
+        {/* HEADER */}
+        <div className="pdf-header">
+          <div>
+            <h1 className="pdf-title">{safeStr(plan?.meta?.title) || "TRiM Produksjonsplan"}</h1>
+            <div className="pdf-sub">
+              <span>
+                <strong>Kandidat:</strong> {safeStr(plan?.meta?.ownerName) || "—"}
+              </span>
+              <span>
+                <strong>Opprettet:</strong> {created}
+              </span>
+              <span>
+                <strong>Sist oppdatert:</strong> {updated}
+              </span>
+            </div>
+          </div>
 
-          <View style={styles.divider} />
+          <div className="pdf-pills">
+            {smallField("Deadline", safeStr(plan?.customer?.deadline))}
+            {smallField("Kunde", safeStr(plan?.customer?.name))}
+            {smallField("Prosjekt", safeStr(plan?.customer?.projectName))}
+          </div>
+        </div>
 
-          <Text style={styles.label}>Kundens ønsker (brief)</Text>
-          {bullets(plan.customer.brief)}
+        {/* A) KUNDEPLAN */}
+        {sectionTitle("A) Kundeplan – helhet")}
+        <div className="card">
+          {field("Kunde (navn)", safeStr(plan?.customer?.name))}
+          {field("Kontaktperson", safeStr(plan?.customer?.contact))}
+          {field("Prosjektnavn", safeStr(plan?.customer?.projectName))}
+          {field("Deadline", safeStr(plan?.customer?.deadline))}
+          {field("Kanaler / flater", safeStr(plan?.customer?.channels))}
+          <div className="divider" />
+          {field("Kundens ønsker (brief)", safeStr(plan?.customer?.brief))}
+          {field("Suksesskriterier", safeStr(plan?.customer?.successCriteria))}
+          {field("Målgruppe", safeStr(plan?.customer?.targetAudience))}
+        </div>
 
-          <Text style={[styles.label, { marginTop: 8 }]}>Suksesskriterier</Text>
-          {bullets(plan.customer.successCriteria)}
+        {/* STRATEGI */}
+        {sectionTitle("A) Strategi – helhet")}
+        <div className="card">
+          {field("Konsept", safeStr(plan?.strategy?.concept))}
+          {field("Kjernebudskap", safeStr(plan?.strategy?.keyMessage))}
+          {field("Tone og visuell stil", safeStr(plan?.strategy?.toneAndStyle))}
+          {field("Hook-idéer", safeStr(plan?.strategy?.hookIdeas))}
+          {field("Struktur", safeStr(plan?.strategy?.structure))}
+          {field("Referanser (lenker)", safeStr(plan?.strategy?.references))}
+        </div>
 
-          <View style={styles.row}>
-            <View style={styles.col}>
-              <Text style={[styles.label, { marginTop: 8 }]}>Målgruppe</Text>
-              <Text style={styles.value}>{v(plan.customer.targetAudience)}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={[styles.label, { marginTop: 8 }]}>Kanaler / flater</Text>
-              <Text style={styles.value}>{v(plan.customer.channels)}</Text>
-            </View>
-          </View>
-        </View>
+        {/* LOGISTIKK */}
+        {sectionTitle("A) Logistikk – helhet")}
+        <div className="card">
+          {field("Hovedlokasjon", safeStr(plan?.logistics?.mainLocation))}
+          {field("Rom/klasserom", safeStr(plan?.logistics?.classroomOrRoom))}
+          {field("Kontakter å avklare", safeStr(plan?.logistics?.contactsToClear))}
+          {field("Lærere/talent", safeStr(plan?.logistics?.teachersOrTalent))}
+          {field("Assistenter", safeStr(plan?.logistics?.assistants))}
+          {field("Tillatelser", safeStr(plan?.logistics?.permissions))}
+        </div>
 
-        <Text style={styles.h2}>Konsept og strategi</Text>
-        <View style={styles.box}>
-          <Text style={styles.label}>Konsept</Text>
-          {bullets(plan.strategy.concept)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Kjernebudskap</Text>
-          {bullets(plan.strategy.keyMessage)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Tone og visuell stil</Text>
-          {bullets(plan.strategy.toneAndStyle)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Hook-idéer</Text>
-          {bullets(plan.strategy.hookIdeas)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Struktur</Text>
-          {bullets(plan.strategy.structure)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Referanser</Text>
-          {bullets(plan.strategy.references)}
-        </View>
+        {/* UTSTYR */}
+        {sectionTitle("A) Utstyr og teknikk – helhet")}
+        <div className="card">
+          <div className="grid-2">
+            <div className="checkbox">
+              <strong>iPhone 17 Pro Max:</strong> {plan?.equipment?.available?.iphone17ProMax ? "Ja" : "Nei"}
+            </div>
+            <div className="checkbox">
+              <strong>DJI mikrofoner:</strong> {plan?.equipment?.available?.djiMics ? "Ja" : "Nei"}
+            </div>
+            <div className="checkbox">
+              <strong>DJI gimbal:</strong> {plan?.equipment?.available?.djiGimbal ? "Ja" : "Nei"}
+            </div>
+            <div className="checkbox">
+              <strong>Mobilt lys:</strong> {plan?.equipment?.available?.mobileLight ? "Ja" : "Nei"}
+            </div>
+          </div>
+          <div className="divider" />
+          {field("Ekstra å ta med", safeStr(plan?.equipment?.extraToBring))}
+          {field("Tekniske sjekker (preflight)", safeStr(plan?.equipment?.preflightChecks))}
+        </div>
 
-        <Text style={styles.h2}>Logistikk og avtaler</Text>
-        <View style={styles.box}>
-          <View style={styles.row}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Hovedlocation</Text>
-              <Text style={styles.value}>{v(plan.logistics.mainLocation)}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Rom / klasserom</Text>
-              <Text style={styles.value}>{v(plan.logistics.classroomOrRoom)}</Text>
-            </View>
-          </View>
-          <Text style={[styles.label, { marginTop: 8 }]}>Hvem må avklare filming med</Text>
-          {bullets(plan.logistics.contactsToClear)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Medvirkende (lærer/talent)</Text>
-          {bullets(plan.logistics.teachersOrTalent)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Assistenter / statister</Text>
-          {bullets(plan.logistics.assistants)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Tillatelser</Text>
-          {bullets(plan.logistics.permissions)}
-        </View>
+        {/* DOKUMENTASJON */}
+        {sectionTitle("A) Dokumentasjon og kvalitet – helhet")}
+        <div className="card">
+          {field("Loggplan", safeStr(plan?.documentation?.logPlan))}
+          {field("Filstruktur", safeStr(plan?.documentation?.fileStructure))}
+          {field("Navngiving", safeStr(plan?.documentation?.namingConventions))}
+          {field("Backup-plan", safeStr(plan?.documentation?.backupPlan))}
+        </div>
 
-        <Text style={styles.h2}>Utstyr og tekniske sjekker</Text>
-        <View style={styles.box}>
-          <Text style={styles.label}>Tilgjengelig</Text>
-          <Text style={styles.value}>
-            {plan.equipment.available.iphone17ProMax ? "✓" : "–"} iPhone 17 Pro Max •{" "}
-            {plan.equipment.available.djiMics ? "✓" : "–"} DJI mikrofoner •{" "}
-            {plan.equipment.available.djiGimbal ? "✓" : "–"} DJI gimbal •{" "}
-            {plan.equipment.available.mobileLight ? "✓" : "–"} Mobilt lys
-          </Text>
-          <Text style={[styles.label, { marginTop: 8 }]}>Ekstra å ta med</Text>
-          {bullets(plan.equipment.extraToBring)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Preflight (før opptak)</Text>
-          {bullets(plan.equipment.preflightChecks)}
-        </View>
+        {/* B) PRODUKSJONER */}
+        {sectionTitle("B) Produksjoner – video")}
+        {videos.length === 0 ? (
+          <div className="card muted">Ingen videoplaner.</div>
+        ) : (
+          videos.map((v, idx) => (
+            <div key={v.id} className="card">
+              <div className="card-h">
+                <div className="card-title">
+                  🎬 Video {idx + 1}: {safeStr(v.title) || "Uten tittel"}
+                </div>
+                <div className="muted">Status: {v.status || "—"}</div>
+              </div>
 
-        <Text style={styles.h2}>Intervju, oppsett og B-roll</Text>
-        <View style={styles.box}>
-          <Text style={styles.label}>Intervjuguide</Text>
-          {bullets(plan.interview.guide)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Spørsmål</Text>
-          {bullets(plan.interview.questions)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Instruks til medvirkende</Text>
-          {bullets(plan.interview.instructionsToTalent)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Kameraoppsett</Text>
-          {bullets(plan.interview.cameraSetup)}
-          <Text style={[styles.label, { marginTop: 8 }]}>B-roll-liste</Text>
-          {bullets(plan.interview.brollList)}
-        </View>
+              <div className="grid-2">
+                {field("Mål", safeStr(v.goal))}
+                {field("Leveranser", safeStr(v.deliverables))}
+              </div>
 
-        <Text style={styles.h2}>Dokumentasjon</Text>
-        <View style={styles.box}>
-          <Text style={styles.label}>Loggplan</Text>
-          {bullets(plan.documentation.logPlan)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Filstruktur</Text>
-          {bullets(plan.documentation.fileStructure)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Navngiving</Text>
-          {bullets(plan.documentation.namingConventions)}
-          <Text style={[styles.label, { marginTop: 8 }]}>Backup</Text>
-          {bullets(plan.documentation.backupPlan)}
-        </View>
-      </Page>
+              <div className="grid-2">
+                {field("Formater", safeStr(v.formats))}
+                {field("Locations", safeStr(v.locations))}
+              </div>
 
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.h1}>Ukeplan frem til {v(plan.customer.deadline)}</Text>
-        <Text style={styles.small}>
-          Fyll ut i detalje: aktiviteter, avklaringer, Freepik-prompts/iterasjoner, shoot-dager, leveranser og risiko.
-        </Text>
+              {field("Konsept", safeStr(v.concept))}
+              <div className="grid-2">
+                {field("Hook-idéer", safeStr(v.hookIdeas))}
+                {field("Struktur", safeStr(v.structure))}
+              </div>
+              {field("Tone / visuell stil", safeStr(v.toneAndStyle))}
 
-        {plan.weekly.map((w) => (
-          <View key={w.id} style={styles.weekCard} wrap={false}>
-            <Text style={{ fontSize: 11, fontWeight: 700 }}>{v(w.weekLabel)}</Text>
-            <Text style={[styles.label, { marginTop: 6 }]}>Fokus</Text>
-            {bullets(w.focus)}
-            <Text style={[styles.label, { marginTop: 6 }]}>Kunde/avklaringer</Text>
-            {bullets(w.customerTasks)}
-            <Text style={[styles.label, { marginTop: 6 }]}>Produksjon/redigering</Text>
-            {bullets(w.productionTasks)}
-            <Text style={[styles.label, { marginTop: 6 }]}>Freepik – bilde</Text>
-            {bullets(w.freepikImageTasks)}
-            <Text style={[styles.label, { marginTop: 6 }]}>Freepik – video</Text>
-            {bullets(w.freepikVideoTasks)}
+              {/* Intervju (per video) */}
+              <div className="divider" />
+              <div className="card-subtitle">Intervju (per video)</div>
+              <div className="grid-2">
+                <div>
+                  <div className="label">Guide</div>
+                  {bullets(safeStr(v.interviewGuide))}
+                </div>
+                <div>
+                  <div className="label">Spørsmål</div>
+                  {bullets(safeStr(v.questions))}
+                </div>
+              </div>
 
-            <Text style={[styles.label, { marginTop: 6 }]}>Shoot-dager</Text>
-            {w.shootDays?.length ? (
-              <View>
-                {w.shootDays.map((sd, i) => (
-                  <Text key={i} style={styles.value}>
-                    • {v(sd.date)} • {v(sd.callTime)} • {v(sd.location)} • {v(sd.notes)}
-                  </Text>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.value}>Ikke oppgitt</Text>
-            )}
+              <div className="grid-2">
+                <div>
+                  <div className="label">Kameraoppsett</div>
+                  {bullets(safeStr(v.cameraSetup))}
+                </div>
+                <div>
+                  <div className="label">B-roll-liste</div>
+                  {bullets(safeStr(v.brollList))}
+                </div>
+              </div>
 
-            <View style={styles.row}>
-              <View style={styles.col}>
-                <Text style={[styles.label, { marginTop: 6 }]}>Leveranser</Text>
-                {bullets(w.deliverables)}
-              </View>
-              <View style={styles.col}>
-                <Text style={[styles.label, { marginTop: 6 }]}>Risiko/tiltak</Text>
-                {bullets(w.risks)}
-              </View>
-            </View>
-          </View>
-        ))}
-      </Page>
-    </Document>
+              {/* Shoot days */}
+              <div className="divider" />
+              <div className="card-subtitle">Shoot-dager (kun denne videoen)</div>
+              {Array.isArray(v.shootDays) && v.shootDays.length ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Dato</th>
+                      <th>Location</th>
+                      <th>Calltime</th>
+                      <th>Notat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {v.shootDays.map((sd, i2) => (
+                      <tr key={i2}>
+                        <td>{sd?.date || "—"}</td>
+                        <td>{sd?.location || "—"}</td>
+                        <td>{sd?.callTime || "—"}</td>
+                        <td>{sd?.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="muted">—</div>
+              )}
+
+              {/* Freepik per video */}
+              <div className="divider" />
+              <div className="grid-2">
+                {field("Freepik – bilde (plan)", safeStr(v.freepikImagePlan))}
+                {field("Freepik – video (plan)", safeStr(v.freepikVideoPlan))}
+              </div>
+              {field("Notater", safeStr(v.notes))}
+
+              {/* ✅ Publiseringsplan UNDER hver video */}
+              {publishingBlock((v as any)?.publishing, "Publiseringsplan (for denne videoen)")}
+            </div>
+          ))
+        )}
+
+        {sectionTitle("B) Produksjoner – grafisk arbeid")}
+        {graphics.length === 0 ? (
+          <div className="card muted">Ingen grafikk-planer.</div>
+        ) : (
+          graphics.map((g, idx) => (
+            <div key={g.id} className="card">
+              <div className="card-h">
+                <div className="card-title">
+                  🖼️ Grafikk {idx + 1}: {safeStr(g.title) || "Uten tittel"}
+                </div>
+                <div className="muted">Status: {g.status || "—"}</div>
+              </div>
+
+              <div className="grid-2">
+                {field("Mål", safeStr(g.goal))}
+                {field("Leveranser", safeStr(g.deliverables))}
+              </div>
+
+              <div className="grid-2">
+                {field("Formater", safeStr(g.formats))}
+                {field("Assets som trengs", safeStr(g.assetsNeeded))}
+              </div>
+
+              {field("Stil / brandguide", safeStr(g.styleGuide))}
+              {field("Notater", safeStr(g.notes))}
+
+              <div className="divider" />
+              <div className="grid-2">
+                {field("Freepik – bilde (plan)", safeStr(g.freepikImagePlan))}
+                {field("Freepik – video (plan)", safeStr(g.freepikVideoPlan))}
+              </div>
+
+              {/* ✅ Publiseringsplan UNDER hver grafikk */}
+              {publishingBlock((g as any)?.publishing, "Publiseringsplan (for dette grafiske arbeidet)")}
+            </div>
+          ))
+        )}
+
+        {/* C) UKELOGG */}
+        {sectionTitle("C) Ukelogg")}
+        {Array.isArray(plan?.weeks) && plan.weeks.length ? (
+          plan.weeks.map((w, idx) => (
+            <div key={w.id} className="card">
+              <div className="card-h">
+                <div className="card-title">
+                  Uke {idx + 1}: {safeStr(w.weekLabel) || "—"}
+                </div>
+                <div className="muted">Uke-start: {safeStr(w.weekStart) || "—"}</div>
+              </div>
+
+              <div className="grid-2">
+                {field("Fokus", safeStr(w.focus))}
+                {field("Leveranser", safeStr(w.deliverables))}
+              </div>
+
+              <div className="grid-2">
+                {field("Kunde / avklaringer / godkjenning", safeStr(w.customerAndApprovals))}
+                {field("Produksjon / redigering / design", safeStr(w.productionWork))}
+              </div>
+
+              <div className="grid-2">
+                {field("Freepik – bilde (ukearbeid)", safeStr(w.freepikImageWork))}
+                {field("Freepik – video (ukearbeid)", safeStr(w.freepikVideoWork))}
+              </div>
+
+              <div className="divider" />
+              <div className="card-subtitle">Shoot-dager (denne uka)</div>
+              {Array.isArray(w.shootDays) && w.shootDays.length ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Dato</th>
+                      <th>Location</th>
+                      <th>Calltime</th>
+                      <th>Notat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {w.shootDays.map((sd, i2) => (
+                      <tr key={i2}>
+                        <td>{sd?.date || "—"}</td>
+                        <td>{sd?.location || "—"}</td>
+                        <td>{sd?.callTime || "—"}</td>
+                        <td>{sd?.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="muted">—</div>
+              )}
+
+              {field("Risiko / tiltak", safeStr(w.risks))}
+            </div>
+          ))
+        ) : (
+          <div className="card muted">Ingen uker lagt til.</div>
+        )}
+
+        <div className="pdf-footer muted">
+          Tips: Loggfør alltid hva som er KI-generert og hva som er filmet/designet. Lagre prompts + resultater.
+        </div>
+      </div>
+
+      {/* Minimal styling – bruker dine globale klasser, men PDF trenger litt basis */}
+      <style jsx>{`
+        .pdf-root {
+          display: grid;
+          gap: 12px;
+        }
+        .pdf-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
+        .pdf {
+          background: white;
+          color: #111;
+          padding: 18px;
+          border-radius: 12px;
+        }
+        .pdf-header {
+          display: grid;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+        .pdf-title {
+          font-size: 22px;
+          line-height: 1.2;
+          margin: 0;
+        }
+        .pdf-sub {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          font-size: 12px;
+          margin-top: 6px;
+        }
+        .pdf-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .section-title {
+          margin: 16px 0 8px;
+          font-weight: 700;
+          font-size: 14px;
+        }
+        .card {
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          border-radius: 12px;
+          padding: 12px;
+          margin: 0 0 10px;
+        }
+        .card-h {
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-bottom: 8px;
+        }
+        .card-title {
+          font-weight: 700;
+        }
+        .card-subtitle {
+          font-weight: 700;
+          font-size: 13px;
+          margin-bottom: 6px;
+        }
+        .grid-2 {
+          display: grid;
+          gap: 10px;
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 700px) {
+          .grid-2 {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        .row {
+          display: grid;
+          gap: 6px;
+          grid-template-columns: 160px 1fr;
+          align-items: start;
+          padding: 6px 0;
+        }
+        .label {
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .value {
+          font-size: 12px;
+        }
+        .pre {
+          white-space: pre-wrap;
+        }
+        .muted {
+          opacity: 0.7;
+          font-size: 12px;
+        }
+        .divider {
+          height: 1px;
+          background: rgba(0, 0, 0, 0.08);
+          margin: 10px 0;
+        }
+        .pill {
+          display: inline-flex;
+          gap: 6px;
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 12px;
+        }
+        .list {
+          margin: 0;
+          padding-left: 16px;
+          font-size: 12px;
+        }
+        .table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+        .table th,
+        .table td {
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          padding: 6px 8px;
+          text-align: left;
+          vertical-align: top;
+        }
+        .pdf-footer {
+          margin-top: 14px;
+          font-size: 12px;
+        }
+
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          .pdf {
+            border-radius: 0;
+            padding: 0;
+          }
+          .card {
+            break-inside: avoid;
+          }
+        }
+      `}</style>
+    </div>
   );
 }
