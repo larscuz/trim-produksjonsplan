@@ -35,9 +35,7 @@ function field(label: string, value: string) {
   return (
     <div className="row">
       <div className="label">{label}</div>
-      <div className="value">
-        {v ? <div className="pre">{v}</div> : <div className="muted">—</div>}
-      </div>
+      <div className="value">{v ? <div className="pre">{v}</div> : <div className="muted">—</div>}</div>
     </div>
   );
 }
@@ -59,7 +57,7 @@ function safePublishing(p: any): PublishingPlan {
   // Defensive for gammel JSON / manglende felt
   return {
     overallPlan: safeStr(p?.overallPlan),
-    platforms: safeStr(p?.platforms),
+    platforms: safeStr(p?.platforms) || "Instagram Reels, TikTok, YouTube Shorts, nettside",
     cadence: safeStr(p?.cadence),
     approvals: safeStr(p?.approvals),
     roles: safeStr(p?.roles),
@@ -68,7 +66,7 @@ function safePublishing(p: any): PublishingPlan {
   };
 }
 
-function publishingBlock(publishing: PublishingPlan, title: string) {
+function publishingBlock(publishing: any, title: string) {
   const pub = safePublishing(publishing);
 
   return (
