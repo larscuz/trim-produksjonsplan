@@ -1,8 +1,18 @@
-import type { PlanDoc, WeekEntry, VideoPlan, GraphicPlan, PublishingPlan } from "./types";
+// lib/defaults.ts
+
+import type {
+  PlanDoc,
+  WeekEntry,
+  VideoPlan,
+  GraphicPlan,
+  PublishingPlan,
+} from "./types";
 import { buildWeeksUntil, toISODate } from "./date";
 
 function uid() {
-  return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+  return (
+    Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2)
+  );
 }
 
 function defaultPublishing(): PublishingPlan {
@@ -27,7 +37,7 @@ function makeDefaultVideo(): VideoPlan {
     concept: "",
     hookIdeas: "",
     structure: "Hook → presentasjon → hovedinnhold → b-roll → outro/logo → CTA",
-    toneAndStyle: "",
+    toneAndStyle: "Rolig, filmatisk, troverdig. Skandinavisk og profesjonelt.",
     locations: "",
     shootDays: [],
     interviewGuide:
@@ -43,7 +53,10 @@ function makeDefaultVideo(): VideoPlan {
     freepikVideoPlan:
       "AI-b-roll, alternative takes, transitions, safety shots (noter prompts + eksport).",
     notes: "",
-    publishing: defaultPublishing(), // ✅ per video
+
+    // ✅ Publisering per video
+    publishing: defaultPublishing(),
+
     status: "planned",
   };
 }
@@ -62,13 +75,15 @@ function makeDefaultGraphic(): GraphicPlan {
     freepikVideoPlan:
       "Hvis motion/AI-video: korte loops, bakgrunner, overganger (loggfør prompts).",
     notes: "",
-    publishing: defaultPublishing(), // ✅ per grafikk
+
+    // ✅ Publisering per grafikk
+    publishing: defaultPublishing(),
+
     status: "planned",
   };
 }
 
 function makeFirstWeek(deadlineISO: string): WeekEntry {
-  // Vi bruker eksisterende uke-bygger, men tar kun første uke
   const weeks = buildWeeksUntil(deadlineISO);
   const w0 = weeks[0];
 
@@ -76,12 +91,16 @@ function makeFirstWeek(deadlineISO: string): WeekEntry {
     id: uid(),
     weekLabel: w0?.label ?? "Uke (start)",
     weekStart: toISODate(w0?.weekStart ?? new Date()),
+
     focus: "",
     deliverables: "",
+
     customerAndApprovals: "",
     productionWork: "",
+
     freepikImageWork: "",
     freepikVideoWork: "",
+
     shootDays: [],
     risks: "",
     linkedProductionIds: [],
@@ -99,7 +118,6 @@ export function makeDefaultPlan(deadlineISO = "2026-06-01"): PlanDoc {
       ownerName: "",
     },
 
-    // A) Kundeplan (helhet)
     customer: {
       name: "",
       contact: "",
@@ -114,7 +132,7 @@ export function makeDefaultPlan(deadlineISO = "2026-06-01"): PlanDoc {
     strategy: {
       concept: "",
       keyMessage: "",
-      toneAndStyle: "",
+      toneAndStyle: "Rolig, filmatisk, troverdig. Skandinavisk og profesjonelt.",
       hookIdeas: "",
       structure: "Hook → presentasjon → hovedinnhold → b-roll → outro/logo → CTA",
       references: "",
@@ -153,13 +171,11 @@ export function makeDefaultPlan(deadlineISO = "2026-06-01"): PlanDoc {
         "Lagre råfiler samme dag (lokalt + sky). Ha minst 2 kopier før sletting fra telefon.",
     },
 
-    // B) Produksjoner (starter med 1 + 1)
     productions: {
       videos: [makeDefaultVideo()],
       graphics: [makeDefaultGraphic()],
     },
 
-    // C) Ukelogg (starter med 1 uke)
     weeks: [makeFirstWeek(deadlineISO)],
   };
 }

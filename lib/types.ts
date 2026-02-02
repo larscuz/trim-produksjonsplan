@@ -1,3 +1,5 @@
+// lib/types.ts
+
 export type ShootDay = {
   date: string; // YYYY-MM-DD
   location: string;
@@ -14,6 +16,10 @@ export type ProductionStatus =
   | "published"
   | "done";
 
+/**
+ * Publiseringsplan per produksjon
+ * (ikke helhetlig i PlanDoc lenger)
+ */
 export type PublishingPlan = {
   overallPlan: string; // plan for denne produksjonen
   platforms: string; // f.eks. IG/TikTok/YT/Nettside
@@ -24,45 +30,63 @@ export type PublishingPlan = {
   notes: string;
 };
 
+/**
+ * VIDEO-PLAN (én per video)
+ */
 export type VideoPlan = {
   id: string;
-  title: string; // f.eks. "Intervju med lærer – 30 sek"
-  goal: string; // hva skal videoen oppnå?
-  deliverables: string; // leveranser/versjoner/format
-  formats: string; // 9:16 / 16:9 / begge
-  concept: string; // kort pitch
-  hookIdeas: string; // 5–10 forslag
-  structure: string; // hook → ...
-  toneAndStyle: string; // visuell stil
-  locations: string; // steder som gjelder for denne videoen
+  title: string;
+
+  goal: string;
+  deliverables: string;
+  formats: string;
+
+  concept: string;
+  hookIdeas: string;
+  structure: string;
+  toneAndStyle: string;
+
+  locations: string;
   shootDays: ShootDay[];
+
   interviewGuide: string;
   questions: string;
   cameraSetup: string;
   brollList: string;
 
-  freepikImagePlan: string; // moodboard, thumbnails, overlays
-  freepikVideoPlan: string; // ai b-roll, transitions, safety shots
+  freepikImagePlan: string;
+  freepikVideoPlan: string;
+
   notes: string;
 
-  publishing: PublishingPlan; // ✅ per video
+  /** ✅ Publisering per video */
+  publishing: PublishingPlan;
+
   status: ProductionStatus;
 };
 
+/**
+ * GRAFISK PLAN (én per grafikk-leveranse)
+ */
 export type GraphicPlan = {
   id: string;
-  title: string; // f.eks. "Thumbnail-sett", "Plakat", "SoMe-grafikk"
-  goal: string;
-  deliverables: string; // filer/varianter
-  formats: string; // f.eks. 1080x1920, 1920x1080, A4, etc.
-  styleGuide: string; // tone, typografi, farger, brand
-  assetsNeeded: string; // logo, bilder, fonter, etc.
+  title: string;
 
-  freepikImagePlan: string; // generering/iterasjoner
-  freepikVideoPlan: string; // hvis motion/AI-video brukes
+  goal: string;
+  deliverables: string;
+  formats: string;
+
+  styleGuide: string;
+  assetsNeeded: string;
+
+  freepikImagePlan: string;
+  freepikVideoPlan: string;
+
   notes: string;
 
-  publishing: PublishingPlan; // ✅ per grafikk
+  /** ✅ Publisering per grafikk */
+  publishing: PublishingPlan;
+
   status: ProductionStatus;
 };
 
@@ -73,15 +97,15 @@ export type GraphicPlan = {
 export type WeekEntry = {
   id: string;
   weekStart: string; // YYYY-MM-DD (mandag)
-  weekLabel: string; // f.eks. "Uke 6 (2.–8. feb)"
+  weekLabel: string;
 
   focus: string;
   deliverables: string;
 
-  customerAndApprovals: string; // møter/godkjenning/rettigheter
-  productionWork: string; // opptak/redigering/designarbeid denne uka
+  customerAndApprovals: string;
+  productionWork: string;
 
-  freepikImageWork: string; // prompts + resultater
+  freepikImageWork: string;
   freepikVideoWork: string;
 
   shootDays: ShootDay[];
@@ -94,12 +118,15 @@ export type WeekEntry = {
   linkedProductionIds: string[];
 };
 
+/**
+ * HOVEDDOKUMENT
+ */
 export type PlanDoc = {
   meta: {
     title: string;
-    createdAt: string; // ISO
-    updatedAt: string; // ISO
-    ownerName: string; // kandidat/gruppe
+    createdAt: string;
+    updatedAt: string;
+    ownerName: string;
   };
 
   /**
@@ -109,11 +136,11 @@ export type PlanDoc = {
     name: string;
     contact: string;
     projectName: string;
-    deadline: string; // YYYY-MM-DD
-    brief: string; // kundens ønsker
+    deadline: string;
+    brief: string;
     successCriteria: string;
     targetAudience: string;
-    channels: string; // plattformer/flater
+    channels: string;
   };
 
   /**
@@ -129,7 +156,7 @@ export type PlanDoc = {
   };
 
   /**
-   * A) GENERELL LOGISTIKK (for oppdraget)
+   * A) GENERELL LOGISTIKK
    */
   logistics: {
     mainLocation: string;
@@ -141,7 +168,7 @@ export type PlanDoc = {
   };
 
   /**
-   * A) UTSTYR/TEKNISK (generelt)
+   * A) UTSTYR / TEKNISK
    */
   equipment: {
     available: {
@@ -165,7 +192,7 @@ export type PlanDoc = {
   };
 
   /**
-   * B) PRODUKSJONER (flere)
+   * B) PRODUKSJONER
    */
   productions: {
     videos: VideoPlan[];
@@ -173,13 +200,12 @@ export type PlanDoc = {
   };
 
   /**
-   * C) UKELOGG (bygges uke for uke)
+   * C) UKELOGG
    */
   weeks: WeekEntry[];
 };
 
 /**
  * Ny nøkkel fordi vi endrer schema.
- * (hindrer at gammel localStorage krasjer appen)
  */
 export const STORAGE_KEY = "trim-plan-v2";
